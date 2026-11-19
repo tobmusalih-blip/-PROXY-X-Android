@@ -414,7 +414,7 @@ private fun MiniWave(modifier: Modifier = Modifier) {
             val x=pt.first*size.width; val y=pt.second*size.height
             if (i==0) p.moveTo(x,y) else p.lineTo(x,y)
         }
-        drawPath(p, Color(0xFFB52BFF), style=Stroke(2.dp.toPx(), cap=StrokeCap.Round, join=PathEffect.cornerPathEffect(5.dp.toPx())))
+        drawPath(p, Color(0xFFB52BFF), style=Stroke(2.dp.toPx(), cap=StrokeCap.Round, join=StrokeJoin.Round))
         drawPath(p.apply { lineTo(size.width,size.height); lineTo(0f,size.height); close() },
             Brush.verticalGradient(listOf(Color(0x557D20C5), Color.Transparent)))
     }
