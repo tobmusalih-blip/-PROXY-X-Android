@@ -279,7 +279,7 @@ private fun ProxyXApp(activity: MainActivity) {
                                 Text("${profiles.size} خادم", color = Cyan, fontSize = 12.sp)
                             }
                             if (profiles.isEmpty()) Text("لا توجد خوادم مضافة بعد", color = Soft, fontSize = 12.sp, modifier = Modifier.padding(vertical = 12.dp))
-                            items(profiles) { p ->
+                            profiles.forEach { p ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 7.dp).clip(RoundedCornerShape(12.dp))
                                     .background(Color(0xFF0A0812)).clickable { selectedId = p.id; selectedProtocol = p.protocol }.padding(10.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
