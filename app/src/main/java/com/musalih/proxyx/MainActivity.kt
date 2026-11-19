@@ -155,15 +155,15 @@ private fun ProxyXApp(activity: MainActivity) {
                                     }
                                 }
                             }
-                            Box(Modifier.fillMaxWidth().height(292.dp)) {
+                            Box(Modifier.fillMaxWidth().height(260.dp)) {
                                 HackerHeroArt(Modifier.fillMaxSize())
-                                Column(Modifier.align(Alignment.CenterEnd).padding(end = 20.dp, top = 8.dp),
+                                Column(Modifier.align(Alignment.TopEnd).padding(end = 20.dp, top = 46.dp),
                                     horizontalAlignment = Alignment.End) {
-                                    Text("تصفح بحرية وأمان", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                                    Text("تصفح بحرية وأمان", color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                                     Text("اتصال أسرع .. خصوصية أكبر .. بدون قيود", color = Color(0xFFD5C9E3), fontSize = 12.sp)
                                 }
                             }
-                            Box(Modifier.fillMaxWidth().height(134.dp), contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.fillMaxWidth().height(132.dp), contentAlignment = Alignment.TopCenter) {
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp).offset(y = 20.dp),
                                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     MiniMetric("السرعة الحالية", "-- MB/s", Icons.Default.Bolt, Modifier.weight(1f))
@@ -182,18 +182,19 @@ private fun ProxyXApp(activity: MainActivity) {
                             SectionTitle("اختر البروتوكول", Icons.Default.Layers)
                             Spacer(Modifier.height(12.dp))
                             val protocols = listOf("VLESS", "VMess", "Trojan", "Shadowsocks", "SOCKS5", "WireGuard")
-                            val symbols = listOf("V", "➤", "♞", "➤", "◎", "♧")
+                            val protocolIcons = listOf(Icons.Default.VpnKey, Icons.Default.Send, Icons.Default.Security,
+                                Icons.Default.FlightTakeoff, Icons.Default.Hub, Icons.Default.Lan)
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 protocols.forEachIndexed { i, p ->
                                     val chosen = selectedProtocol == p
-                                    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                                        .background(if (chosen) Brush.verticalGradient(listOf(Color(0xFF392052), Color(0xFF170D25))) else Brush.verticalGradient(listOf(Color(0xFF100C19), Color(0xFF090711))))
-                                        .border(1.dp, if (chosen) Purple else Color(0xFF30233D), RoundedCornerShape(14.dp))
-                                        .clickable { selectedProtocol = p }.padding(vertical = 10.dp, horizontal = 2.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(symbols[i], color = if (chosen) Color(0xFF9B6CFF) else Color(0xFFB7A9CC),
-                                            fontSize = 24.sp, fontWeight = FontWeight.Black)
-                                        Spacer(Modifier.height(6.dp))
+                                    Column(Modifier.weight(1f).height(104.dp).clip(RoundedCornerShape(16.dp))
+                                        .background(if (chosen) Brush.verticalGradient(listOf(Color(0xFF47205F), Color(0xFF180D25))) else Brush.verticalGradient(listOf(Color(0xFF100C19), Color(0xFF080610))))
+                                        .border(if (chosen) 1.8.dp else 1.dp, if (chosen) Purple else Color(0xFF30233D), RoundedCornerShape(16.dp))
+                                        .clickable { selectedProtocol = p }.padding(vertical = 9.dp, horizontal = 1.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                        Icon(protocolIcons[i], null, tint = if (chosen) Color(0xFFD16BFF) else Color(0xFFB7A9CC),
+                                            modifier = Modifier.size(29.dp))
+                                        Spacer(Modifier.height(9.dp))
                                         Text(p, color = if (chosen) White else Color(0xFFD2C9DE), fontSize = 9.sp,
                                             fontWeight = if (chosen) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1)
                                     }
