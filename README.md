@@ -1,15 +1,15 @@
 # PROXY X
 
-Android proxy/VPN client foundation built with Kotlin and Jetpack Compose.
+Arabic-first Android proxy/VPN client with a neon-purple cyberpunk interface.
 
-## Current prototype
-- Manual configuration entry only; no bundled or fake servers.
-- Recognizes URI schemes for HTTP, HTTPS, SOCKS4/5, VMess, VLESS, Trojan, Shadowsocks and WireGuard.
-- Local in-memory profile list and dark neon interface.
-- GitHub Actions builds a debug APK.
+## Supported manual profile formats
+HTTP, HTTPS, SOCKS4, SOCKS5, VMess, VLESS, Trojan, Shadowsocks and WireGuard.
 
-## Important status
-This first build is a UI/configuration prototype, **not yet a working VPN tunnel**. Protocol URI recognition and profile display do not establish a proxy connection. Protocol engines (such as sing-box and a WireGuard implementation) still need integration, as do secure profile persistence, robust import validation and connection lifecycle handling. Do not use this prototype as a privacy/security tool.
+## Core
+The project is being migrated to sing-box libbox for protocol parsing and tunnel support. sing-box is GPL-3.0; distributing an app that embeds it requires compliance with the applicable GPL terms, including source-code and notices. See https://github.com/singbox-android/libbox.
+
+## Security and reliability
+No bundled servers are provided. Users must supply valid server credentials. A successful APK build does not prove that a server is reachable or that every imported URI is valid. Connection testing must be performed with real user-provided profiles and Android VPN permission.
 
 ## Build
-GitHub Actions runs `gradle assembleDebug` and uploads the APK as a workflow artifact.
+GitHub Actions builds a debug APK using JDK 17 and Gradle.
