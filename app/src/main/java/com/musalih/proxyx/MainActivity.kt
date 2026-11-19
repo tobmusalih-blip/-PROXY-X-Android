@@ -21,29 +21,32 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import com.google.zxing.integration.android.IntentIntegrator
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.math.*
 
 private data class Profile(val id: Long, val title: String, val protocol: String, val uri: String)
-private val Ink = Color(0xFF050807)
-private val Panel = Color(0xFF0C1210)
-private val Panel2 = Color(0xFF101A16)
-private val Lime = Color(0xFFC7FF35)
-private val LimeDim = Color(0xFF83B91F)
-private val Cyan = Color(0xFF91E9E1)
-private val White = Color(0xFFF4F7F2)
-private val Muted = Color(0xFF87918A)
-private val Danger = Color(0xFFFF6677)
+private val Bg = Color(0xFF05030B)
+private val Card = Color(0xFF100B1B)
+private val Card2 = Color(0xFF171025)
+private val Purple = Color(0xFFB52BFF)
+private val Violet = Color(0xFF7420D8)
+private val Pink = Color(0xFFE04CFF)
+private val White = Color(0xFFF8F4FF)
+private val Muted = Color(0xFFAAA0B9)
+private val Red = Color(0xFFFF405F)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(5, 8, 7)
-        window.navigationBarColor = android.graphics.Color.rgb(5, 8, 7)
+        window.statusBarColor = android.graphics.Color.rgb(5, 3, 11)
+        window.navigationBarColor = android.graphics.Color.rgb(5, 3, 11)
+        window.decorView.systemUiVisibility = 0
         setContent { ProxyXApp(this) }
     }
 }
@@ -64,9 +67,10 @@ private fun ProxyXApp(activity: MainActivity) {
     var selectedProtocol by remember { mutableStateOf("VLESS") }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var activeTab by remember { mutableIntStateOf(0) }
-    var toast by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
     var dns by remember { mutableStateOf("Cloudflare") }
-    var route by remember { mutableStateOf("كل الاتصالات") }
+    var route by remember { mutableStateOf("افتراضي") }
+    var advanced by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     fun persist(list: List<Profile>) {
@@ -79,242 +83,216 @@ private fun ProxyXApp(activity: MainActivity) {
         val scheme = value.substringBefore("://", "").lowercase()
         val protocol = mapOf("vless" to "VLESS", "vmess" to "VMess", "trojan" to "Trojan",
             "ss" to "Shadowsocks", "shadowsocks" to "Shadowsocks", "socks" to "SOCKS5",
-            "socks5" to "SOCKS5", "http" to "HTTP", "https" to "HTTPS", "wireguard" to "WireGuard", "wg" to "WireGuard")[scheme]
-        if (protocol == null || value.length < 12) { toast = "صيغة الرابط غير معروفة أو غير مكتملة"; return }
+            "socks5" to "SOCKS5", "wireguard" to "WireGuard", "wg" to "WireGuard")[scheme]
+        if (protocol == null || value.length < 12) { message = "الرابط غير معروف أو غير مكتمل"; return }
         val p = Profile(System.currentTimeMillis(), "$protocol • ${profiles.size + 1}", protocol, value)
         profiles = profiles + p
         selectedId = p.id
         selectedProtocol = protocol
         persist(profiles)
         input = ""
-        toast = "تم حفظ إعداد الخادم"
+        message = "تم حفظ إعداد الخادم"
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let { u ->
             runCatching { activity.contentResolver.openInputStream(u)?.bufferedReader()?.use { it.readText() } }
-                .onSuccess { if (!it.isNullOrBlank()) addProfile(it) else toast = "الملف فارغ" }
-                .onFailure { toast = "تعذر قراءة الملف" }
+                .onSuccess { if (!it.isNullOrBlank()) addProfile(it) else message = "الملف فارغ" }
+                .onFailure { message = "تعذرت قراءة الملف" }
         }
     }
     val qr = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val scanned = IntentIntegrator.parseActivityResult(result.resultCode, result.data)?.contents
         if (!scanned.isNullOrBlank()) addProfile(scanned)
     }
-    LaunchedEffect(toast) { if (toast.isNotBlank()) { snackbar.showSnackbar(toast); toast = "" } }
+    LaunchedEffect(message) { if (message.isNotBlank()) { snackbar.showSnackbar(message); message = "" } }
 
-    MaterialTheme(colorScheme = darkColorScheme(background = Ink, surface = Panel, primary = Lime)) {
+    MaterialTheme(colorScheme = darkColorScheme(background = Bg, surface = Card, primary = Purple)) {
         CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
             Scaffold(
-                containerColor = Ink,
+                containerColor = Bg,
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    NavigationBar(containerColor = Color(0xFF080D0B), contentColor = Muted, tonalElevation = 0.dp) {
-                        val names = listOf("الرئيسية", "الخوادم", "السجل", "الإعدادات")
-                        val icons = listOf(Icons.Default.Home, Icons.Default.Dns, Icons.Default.ReceiptLong, Icons.Default.Settings)
+                    NavigationBar(containerColor = Color(0xFF080510), tonalElevation = 0.dp) {
+                        val names = listOf("الرئيسية", "الإحصائيات", "السجلات", "الحماية")
+                        val icons = listOf(Icons.Default.Home, Icons.Default.BarChart, Icons.Default.ReceiptLong, Icons.Default.Security)
                         names.forEachIndexed { i, name ->
-                            NavigationBarItem(
-                                selected = activeTab == i,
-                                onClick = { activeTab = i },
-                                icon = { Icon(icons[i], null, tint = if (activeTab == i) Lime else Muted) },
-                                label = { Text(name, fontSize = 10.sp, color = if (activeTab == i) Lime else Muted) },
-                                colors = NavigationBarItemDefaults.colors(indicatorColor = Color(0xFF202D14))
-                            )
+                            NavigationBarItem(selected = activeTab == i, onClick = { activeTab = i },
+                                icon = { Icon(icons[i], null, tint = if (activeTab == i) Purple else Muted, modifier = Modifier.size(24.dp)) },
+                                label = { Text(name, fontSize = 10.sp, color = if (activeTab == i) Purple else Muted) },
+                                colors = NavigationBarItemDefaults.colors(indicatorColor = Color(0xFF29133B)))
                         }
                     }
                 }
             ) { pad ->
                 LazyColumn(
                     Modifier.fillMaxSize().padding(pad),
-                    contentPadding = PaddingValues(bottom = 26.dp),
-                    verticalArrangement = Arrangement.spacedBy(13.dp)
+                    contentPadding = PaddingValues(bottom = 22.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item {
-                        Column(
-                            Modifier.fillMaxWidth().background(Ink)
-                                .drawBehind {
-                                    // Subtle technical grid and lime atmospheric glow, matching the approved dark concept.
-                                    val step = 34.dp.toPx()
-                                    for (x in 0..(size.width / step).toInt()) {
-                                        drawLine(Color(0x0DCAFF48), Offset(x * step, 0f), Offset(x * step, size.height), 1f)
-                                    }
-                                    for (y in 0..(size.height / step).toInt()) {
-                                        drawLine(Color(0x0DCAFF48), Offset(0f, y * step), Offset(size.width, y * step), 1f)
-                                    }
-                                    drawCircle(Brush.radialGradient(listOf(Color(0x333D7020), Color.Transparent)),
-                                        size.width * 0.55f, Offset(size.width * 0.82f, size.height * 0.18f))
-                                }
-                                .padding(horizontal = 20.dp, vertical = 12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Lime), contentAlignment = Alignment.Center) {
-                                    Text("X", color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black)
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text("PROXY X", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
-                                    Text("PRIVATE • FAST • SECURE", color = Lime, fontSize = 8.sp, letterSpacing = 2.sp)
+                        Column(Modifier.fillMaxWidth().background(Bg)) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { activeTab = 3 }, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp))
+                                    .background(Card).border(1.dp, Color(0xFF38234F), RoundedCornerShape(13.dp))) {
+                                    Icon(Icons.Default.Menu, null, tint = White)
                                 }
                                 Spacer(Modifier.weight(1f))
-                                Surface(color = Color(0xFF172016), shape = CircleShape, border = BorderStroke(1.dp, Color(0xFF536D2C))) {
-                                    Row(Modifier.padding(horizontal = 11.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(6.dp).background(Lime, CircleShape))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("آمن", color = Lime, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("PROXY", color = White, fontSize = 27.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                        Text(" X", color = Purple, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                    }
+                                    Text("X • PRIVATE CONNECTION MANAGER", color = Muted, fontSize = 8.sp, letterSpacing = 1.4.sp)
+                                }
+                                Spacer(Modifier.weight(1f))
+                                Surface(color = Color(0xFF211329), shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF9C641E))) {
+                                    Row(Modifier.padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.WorkspacePremium, null, tint = Color(0xFFFFC64B), modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("PRO", color = Color(0xFFFFD16A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 }
                             }
-                            Spacer(Modifier.height(22.dp))
-                            Text("تحكّم باتصالك", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("خصوصية أقوى. اتصال تحت سيطرتك.", color = Muted, fontSize = 12.sp)
-                            Spacer(Modifier.height(17.dp))
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(218.dp).background(
-                                    Brush.radialGradient(listOf(Color(0x334B751B), Color(0x144B751B), Color.Transparent)), CircleShape))
-                                Box(Modifier.size(174.dp).border(1.dp, Color(0x445B8C25), CircleShape).padding(9.dp)
-                                    .border(2.dp, Lime, CircleShape).padding(8.dp)
-                                    .clip(CircleShape)
-                                    .background(Brush.radialGradient(listOf(Color(0xFF263719), Color(0xFF10180D), Color(0xFF080D09))))
-                                    .border(1.dp, Color(0xFF8EBF39), CircleShape)
-                                    .clickable { toast = if (profiles.isEmpty()) "أضف خادماً أولاً" else "محرك VPN قيد الدمج والاختبار؛ لم يبدأ النفق بعد" },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(Icons.Default.PowerSettingsNew, null, tint = Lime, modifier = Modifier.size(49.dp))
-                                        Spacer(Modifier.height(4.dp))
-                                        Text("اتصال", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                    }
+                            Box(Modifier.fillMaxWidth().height(292.dp)) {
+                                HackerHeroArt(Modifier.fillMaxSize())
+                                Column(Modifier.align(Alignment.CenterEnd).padding(end = 20.dp, top = 8.dp),
+                                    horizontalAlignment = Alignment.End) {
+                                    Text("تصفح بحرية وأمان", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                                    Text("اتصال أسرع .. خصوصية أكبر .. بدون قيود", color = Color(0xFFD5C9E3), fontSize = 12.sp)
                                 }
                             }
-                            Spacer(Modifier.height(8.dp))
-                            Text("غير متصل", color = Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                            Text("اختر خادماً ثم اضغط للاتصال", color = Muted, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                            Box(Modifier.fillMaxWidth().height(134.dp), contentAlignment = Alignment.TopCenter) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp).offset(y = 20.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    MiniMetric("السرعة الحالية", "-- MB/s", Icons.Default.Bolt, Modifier.weight(1f))
+                                    Spacer(Modifier.width(122.dp))
+                                    MiniMetric("الحالة", "● غير متصل", Icons.Default.SignalCellularAlt, Modifier.weight(1f), true)
+                                }
+                                NeonPowerButton(onClick = {
+                                    message = if (profiles.none { it.id == selectedId }) "اختر خادماً أولاً" else
+                                        "خدمة VPN لم تُدمج بعد؛ لم يبدأ اتصال حقيقي"
+                                }, modifier = Modifier.offset(y = (-18).dp))
+                            }
                         }
                     }
                     item {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                            StatTile("PING", "--", "ms", Icons.Default.Speed, Modifier.weight(1f))
-                            StatTile("تحميل", "--", "Mbps", Icons.Default.Download, Modifier.weight(1f))
-                            StatTile("رفع", "--", "Mbps", Icons.Default.Upload, Modifier.weight(1f))
-                        }
-                    }
-                    item {
-                        ConceptPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("الخادم المختار", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                    Text(profiles.firstOrNull { it.id == selectedId }?.title ?: "لم يتم اختيار خادم", color = Muted, fontSize = 12.sp)
-                                }
-                                Icon(Icons.Default.Dns, null, tint = Lime, modifier = Modifier.size(26.dp))
-                            }
+                        GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                            SectionTitle("اختر البروتوكول", Icons.Default.Layers)
                             Spacer(Modifier.height(12.dp))
-                            OutlinedButton(
-                                onClick = { activeTab = 1 },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(13.dp),
-                                border = BorderStroke(1.dp, LimeDim),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Lime)
-                            ) { Icon(Icons.Default.Public, null); Spacer(Modifier.width(7.dp)); Text("اختيار خادم") }
-                        }
-                    }
-                    item {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("البروتوكول", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Spacer(Modifier.weight(1f))
-                                Text("اختر نوع الاتصال", color = Muted, fontSize = 10.sp)
-                            }
-                            Spacer(Modifier.height(9.dp))
-                            val protocols = listOf("VLESS", "VMess", "Shadowsocks", "Trojan", "WireGuard")
+                            val protocols = listOf("VLESS", "VMess", "Trojan", "Shadowsocks", "SOCKS5", "WireGuard")
+                            val symbols = listOf("V", "➤", "♞", "➤", "◎", "♧")
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                protocols.forEach { p ->
-                                    val selected = selectedProtocol == p
-                                    Surface(
-                                        Modifier.weight(1f).clickable { selectedProtocol = p },
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = if (selected) Color(0xFF243719) else Panel,
-                                        border = BorderStroke(1.dp, if (selected) Lime else Color(0xFF26312A))
-                                    ) {
-                                        Text(p, color = if (selected) Lime else Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 12.dp, horizontal = 2.dp))
+                                protocols.forEachIndexed { i, p ->
+                                    val chosen = selectedProtocol == p
+                                    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                        .background(if (chosen) Brush.verticalGradient(listOf(Color(0xFF392052), Color(0xFF170D25))) else Brush.verticalGradient(listOf(Color(0xFF100C19), Color(0xFF090711))))
+                                        .border(1.dp, if (chosen) Purple else Color(0xFF30233D), RoundedCornerShape(14.dp))
+                                        .clickable { selectedProtocol = p }.padding(vertical = 10.dp, horizontal = 2.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(symbols[i], color = if (chosen) Color(0xFF9B6CFF) else Color(0xFFB7A9CC),
+                                            fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(p, color = if (chosen) White else Color(0xFFD2C9DE), fontSize = 9.sp,
+                                            fontWeight = if (chosen) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1)
                                     }
                                 }
                             }
                         }
                     }
                     item {
-                        ConceptPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("إضافة إعداد يدوي", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.AddLink, null, tint = Lime)
-                            }
-                            Spacer(Modifier.height(10.dp))
+                        GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                            SectionTitle("إعدادات السيرفر", Icons.Default.Settings)
+                            Spacer(Modifier.height(12.dp))
                             CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                                OutlinedTextField(
-                                    value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(),
-                                    placeholder = { Text("Paste server link or config", color = Muted, fontSize = 12.sp) },
-                                    minLines = 1, maxLines = 3, shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Lime, unfocusedBorderColor = Color(0xFF344132),
-                                        focusedTextColor = White, unfocusedTextColor = White, cursorColor = Lime
-                                    )
-                                )
+                                OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(),
+                                    placeholder = { Text("أدخل رابط السيرفر هنا...", color = Muted, fontSize = 13.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Link, null, tint = Muted) }, minLines = 1, maxLines = 2,
+                                    shape = RoundedCornerShape(15.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Purple, unfocusedBorderColor = Color(0xFF382A49),
+                                        focusedTextColor = White, unfocusedTextColor = White, cursorColor = Purple))
                             }
                             Spacer(Modifier.height(9.dp))
-                            Button(onClick = { addProfile(input) }, modifier = Modifier.fillMaxWidth().height(47.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink),
-                                shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("إضافة إعداد يدوي", fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                MiniAction("استيراد ملف", Icons.Default.FileOpen, Modifier.weight(1f)) { picker.launch(arrayOf("*/*")) }
-                                MiniAction("مسح QR", Icons.Default.QrCodeScanner, Modifier.weight(1f)) {
+                                ActionButton("مسح الكل", Icons.Default.Delete, Modifier.weight(1f)) {
+                                    profiles = emptyList(); selectedId = null; persist(profiles); message = "تم مسح الخوادم"
+                                }
+                                ActionButton("استيراد ملف", Icons.Default.FolderOpen, Modifier.weight(1f)) { picker.launch(arrayOf("*/*")) }
+                                ActionButton("مسح QR", Icons.Default.QrCodeScanner, Modifier.weight(1f)) {
                                     qr.launch(IntentIntegrator(activity).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
                                         .setPrompt("امسح رمز إعداد الخادم").setBeepEnabled(false).createScanIntent())
                                 }
-                                MiniAction("لصق", Icons.Default.ContentPaste, Modifier.weight(1f)) {
-                                    val cm = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val value = cm.primaryClip?.getItemAt(0)?.coerceToText(activity)?.toString().orEmpty()
-                                    if (value.isNotBlank()) input = value else toast = "الحافظة فارغة"
-                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { addProfile(input) }, modifier = Modifier.fillMaxWidth().height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF291638), contentColor = White),
+                                border = BorderStroke(1.dp, Violet), shape = RoundedCornerShape(13.dp)) {
+                                Icon(Icons.Default.AddLink, null, tint = Purple); Spacer(Modifier.width(7.dp)); Text("إضافة السيرفر", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     item {
-                        ConceptPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            Text("الإعدادات", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            SettingLine("DNS", dns) { dns = if (dns == "Cloudflare") "Google" else "Cloudflare" }
-                            HorizontalDivider(color = Color(0xFF26312A))
-                            SettingLine("توجيه الاتصال", route) { route = if (route == "كل الاتصالات") "تطبيقات محددة" else "كل الاتصالات" }
+                        GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                            Row(Modifier.fillMaxWidth().clickable { advanced = !advanced }, verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Public, null, tint = Purple, modifier = Modifier.size(25.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("توجيه الاتصال", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text(route, color = Muted, fontSize = 11.sp)
+                                }
+                                Text("الخيارات المتقدمة", color = White, fontSize = 12.sp)
+                                Icon(if (advanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = Muted)
+                            }
+                            if (advanced) {
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Color(0xFF382A49))
+                                SettingLine("DNS", dns) { dns = if (dns == "Cloudflare") "Google" else "Cloudflare" }
+                                SettingLine("توجيه التطبيقات", route) { route = if (route == "افتراضي") "كل التطبيقات" else "افتراضي" }
+                            }
                         }
                     }
                     item {
-                        ConceptPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("رفع", color = Muted, fontSize = 11.sp)
+                                    Text("↑  0 KB/s", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("تحميل", color = Muted, fontSize = 11.sp)
+                                    Text("↓  0 KB/s", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                MiniWave(Modifier.weight(1.4f).height(54.dp))
+                            }
+                        }
+                    }
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Shortcut("حول التطبيق", Icons.Default.Info, Modifier.weight(1f)) { message = "PROXY X • Private Connection Manager" }
+                            Shortcut("الإعدادات", Icons.Default.Settings, Modifier.weight(1f)) { activeTab = 3 }
+                            Shortcut("قناة المطور", Icons.Default.Send, Modifier.weight(1f)) { message = "لم يتم إعداد رابط قناة المطور" }
+                            Shortcut("متجر التطبيقات", Icons.Default.ShoppingCart, Modifier.weight(1f)) { message = "المتجر غير متاح حالياً" }
+                        }
+                    }
+                    item {
+                        GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("خوادمي", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Text("${profiles.size} خادم", color = Lime, fontSize = 11.sp)
-                            }
-                            if (profiles.isEmpty()) Text("لا توجد خوادم محفوظة", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
-                            profiles.forEach { p ->
-                                Row(Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(12.dp))
-                                    .background(Panel2).clickable { selectedId = p.id; selectedProtocol = p.protocol }.padding(11.dp),
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(p.title, color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                        Text(p.protocol, color = Lime, fontSize = 10.sp)
-                                    }
-                                    if (selectedId == p.id) Icon(Icons.Default.CheckCircle, null, tint = Lime)
-                                    IconButton(onClick = {
-                                        profiles = profiles.filterNot { it.id == p.id }; persist(profiles)
-                                        if (selectedId == p.id) selectedId = null
-                                    }) { Icon(Icons.Default.DeleteOutline, null, tint = Muted) }
-                                }
+                                Icon(Icons.Default.WorkspacePremium, null, tint = Color(0xFFFFC64B))
+                                Spacer(Modifier.width(8.dp))
+                                Text("اتصال آمن • PROXY X • خصوصيتك أولاً", color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
-                    item {
-                        Text("PROXY X  •  PRIVATE CONNECTION", color = Color(0xFF58634F), fontSize = 9.sp,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center)
+                    if (activeTab == 1 || activeTab == 2 || activeTab == 3) {
+                        item {
+                            GlowPanel(Modifier.fillMaxWidth().padding(horizontal = 15.dp)) {
+                                Text(when(activeTab) { 1 -> "الإحصائيات"; 2 -> "السجلات"; else -> "إعدادات التطبيق" },
+                                    color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(8.dp))
+                                Text(if (activeTab == 1) "ستظهر إحصائيات الاتصال بعد دمج محرك VPN." else if (activeTab == 2) "لا توجد سجلات اتصال بعد." else "إعدادات DNS والتوجيه متاحة من الخيارات المتقدمة.", color = Muted, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -323,45 +301,130 @@ private fun ProxyXApp(activity: MainActivity) {
 }
 
 @Composable
-private fun StatTile(label: String, value: String, unit: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(15.dp)).background(Panel)
-        .border(1.dp, Color(0xFF263329), RoundedCornerShape(15.dp)).padding(vertical = 13.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, tint = Lime, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.height(5.dp))
-        Text(label, color = Muted, fontSize = 10.sp)
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(3.dp))
-            Text(unit, color = Muted, fontSize = 9.sp, modifier = Modifier.padding(bottom = 3.dp))
+private fun HackerHeroArt(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width; val h = size.height
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF090313), Color(0xFF05030B), Color(0xFF090411))))
+        drawCircle(Brush.radialGradient(listOf(Color(0xAA6E13B8), Color(0x44620BA5), Color.Transparent), center = Offset(w*.22f,h*.52f), radius = w*.62f), radius = w*.62f, center = Offset(w*.22f,h*.52f))
+        // Dotted world map silhouette
+        for (row in 0..17) for (col in 0..42) {
+            val nx = col / 42f; val ny = row / 17f
+            val land = ((nx < .23f && ny > .25f && ny < .82f) || (nx in .28f.. .46f && ny > .15f && ny < .72f) ||
+                (nx in .51f.. .94f && ny > .2f && ny < .7f) || (nx in .38f.. .57f && ny > .68f && ny < .88f))
+            if (land && ((col*7+row*11)%5 != 0)) drawCircle(Color(0x887D27D0), 1.05.dp.toPx(), Offset(w*(.43f+nx*.55f), h*(.04f+ny*.58f)))
+        }
+        // Cloaked shoulders and hood
+        val cloak = Path().apply {
+            moveTo(-w*.05f,h*.98f); lineTo(-w*.02f,h*.55f); quadraticTo(w*.02f,h*.38f,w*.20f,h*.28f)
+            quadraticTo(w*.18f,h*.04f,w*.38f,h*.02f); quadraticTo(w*.59f,h*.04f,w*.60f,h*.30f)
+            quadraticTo(w*.75f,h*.42f,w*.73f,h*.98f); close()
+        }
+        drawPath(cloak, Brush.linearGradient(listOf(Color(0xFF2B0B45), Color(0xFF08050F), Color(0xFF12091F)), start=Offset(0f,0f), end=Offset(w*.65f,h)))
+        drawPath(cloak, Color(0xFF8D28D6).copy(alpha=.55f), style=Stroke(width=2.dp.toPx()))
+        // Hood opening and hidden face
+        val hood = Path().apply {
+            moveTo(w*.18f,h*.36f); quadraticTo(w*.16f,h*.08f,w*.39f,h*.07f); quadraticTo(w*.62f,h*.08f,w*.61f,h*.37f)
+            quadraticTo(w*.57f,h*.62f,w*.40f,h*.69f); quadraticTo(w*.23f,h*.60f,w*.18f,h*.36f); close()
+        }
+        drawPath(hood, Brush.radialGradient(listOf(Color(0xFF030108), Color(0xFF090311), Color(0xFF270B3D)), center=Offset(w*.40f,h*.35f), radius=w*.25f))
+        drawPath(hood, Color(0xFFB02AFF), style=Stroke(width=3.dp.toPx()))
+        // X visor
+        val cx=w*.40f; val cy=h*.39f
+        drawLine(Color(0xFFD72CFF), Offset(cx-w*.07f,cy-h*.055f), Offset(cx+w*.07f,cy+h*.055f), 5.dp.toPx(), cap=StrokeCap.Round)
+        drawLine(Color(0xFFD72CFF), Offset(cx+w*.07f,cy-h*.055f), Offset(cx-w*.07f,cy+h*.055f), 5.dp.toPx(), cap=StrokeCap.Round)
+        drawCircle(Color(0xFFB51BFF).copy(alpha=.25f), w*.17f, Offset(cx,cy))
+        // purple rim glow at base
+        drawLine(Brush.horizontalGradient(listOf(Color.Transparent, Purple, Pink, Color.Transparent)), Offset(0f,h*.96f), Offset(w,h*.96f), 3.dp.toPx())
+    }
+}
+
+@Composable
+private fun NeonPowerButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.size(178.dp).shadow(22.dp, CircleShape, ambientColor = Purple, spotColor = Purple)
+        .background(Brush.radialGradient(listOf(Color(0xFF29113C), Color(0xFF10091B), Bg)), CircleShape)
+        .border(5.dp, Brush.sweepGradient(listOf(Purple, Pink, Violet, Purple)), CircleShape)
+        .padding(8.dp).border(1.dp, Color(0xFF9D4CE0), CircleShape).clip(CircleShape)
+        .clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.PowerSettingsNew, null, tint = White, modifier = Modifier.size(57.dp))
+            Text("اتصال", color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun ConceptPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp))
-        .background(Brush.verticalGradient(listOf(Color(0xFF121A15), Color(0xFF0A100D))))
-        .border(1.dp, Color(0xFF2A382D), RoundedCornerShape(18.dp)).padding(15.dp), content = content)
+private fun MiniMetric(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, right: Boolean = false) {
+    Column(modifier.height(92.dp).clip(RoundedCornerShape(20.dp))
+        .background(Brush.verticalGradient(listOf(Color(0xFF171025), Color(0xFF0B0712))))
+        .border(1.dp, Color(0xFF49305F), RoundedCornerShape(20.dp)).padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(icon, null, tint = if (right) Color(0xFF28D58A) else Purple, modifier = Modifier.size(22.dp))
+        Text(title, color = White, fontSize = 11.sp)
+        Text(value, color = if (right) Red else Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
-private fun MiniAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
-    Surface(modifier.clickable(onClick = onClick), color = Panel2, shape = RoundedCornerShape(11.dp),
-        border = BorderStroke(1.dp, Color(0xFF2A382D))) {
-        Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = Lime, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.height(4.dp))
-            Text(label, color = Muted, fontSize = 10.sp)
+private fun GlowPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(21.dp))
+        .background(Brush.verticalGradient(listOf(Color(0xFF171023), Color(0xFF0B0712))))
+        .border(1.dp, Color(0xFF4A315F), RoundedCornerShape(21.dp))
+        .drawBehind { drawCircle(Brush.radialGradient(listOf(Color(0x337D22B7), Color.Transparent)), size.width*.25f, Offset(0f,0f)) }
+        .padding(14.dp), content = content)
+}
+
+@Composable
+private fun SectionTitle(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Icon(icon, null, tint = Purple, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
+private fun ActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    Surface(modifier.clickable(onClick = onClick), color = Color(0xFF1B1427), shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFF49315E))) {
+        Column(Modifier.padding(vertical = 11.dp, horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, null, tint = Color(0xFFC59AFF), modifier = Modifier.size(21.dp))
+            Spacer(Modifier.height(5.dp))
+            Text(label, color = White, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 1)
         }
+    }
+}
+
+@Composable
+private fun Shortcut(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(17.dp)).background(Card)
+        .border(1.dp, Color(0xFF3C2850), RoundedCornerShape(17.dp)).clickable(onClick=onClick)
+        .padding(vertical=13.dp, horizontal=3.dp), horizontalAlignment=Alignment.CenterHorizontally) {
+        Icon(icon, null, tint=Purple, modifier=Modifier.size(27.dp))
+        Spacer(Modifier.height(7.dp))
+        Text(label, color=White, fontSize=9.sp, textAlign=TextAlign.Center, maxLines=1)
+    }
+}
+
+@Composable
+private fun MiniWave(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val p = Path()
+        val points = listOf(0f to .78f, .08f to .55f, .14f to .75f, .22f to .48f, .3f to .68f, .39f to .15f,
+            .47f to .72f, .56f to .4f, .65f to .7f, .74f to .3f, .82f to .78f, .91f to .62f, 1f to .8f)
+        points.forEachIndexed { i, pt ->
+            val x=pt.first*size.width; val y=pt.second*size.height
+            if (i==0) p.moveTo(x,y) else p.lineTo(x,y)
+        }
+        drawPath(p, Color(0xFFB52BFF), style=Stroke(2.dp.toPx(), cap=StrokeCap.Round, join=PathEffect.cornerPathEffect(5.dp.toPx())))
+        drawPath(p.apply { lineTo(size.width,size.height); lineTo(0f,size.height); close() },
+            Brush.verticalGradient(listOf(Color(0x557D20C5), Color.Transparent)))
     }
 }
 
 @Composable
 private fun SettingLine(label: String, value: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-        Text(value, color = Lime, fontSize = 12.sp)
-        Icon(Icons.Default.ChevronLeft, null, tint = Muted)
+    Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=11.dp), verticalAlignment=Alignment.CenterVertically) {
+        Text(label, color=Muted, fontSize=12.sp, modifier=Modifier.weight(1f))
+        Text(value, color=Color(0xFFD0A5FF), fontSize=12.sp)
+        Icon(Icons.Default.ChevronLeft, null, tint=Muted)
     }
 }
