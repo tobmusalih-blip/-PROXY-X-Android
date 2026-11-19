@@ -37,6 +37,7 @@ private val Purple = Color(0xFF9B32FF)
 private val Purple2 = Color(0xFF5D19D8)
 private val Cyan = Color(0xFF37DDF5)
 private val Soft = Color(0xFFB8B1CC)
+private val Muted = Color(0xFF8E879E)
 private val Green = Color(0xFF00E58B)
 private val Red = Color(0xFFFF4265)
 
