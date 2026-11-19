@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
+import com.google.zxing.integration.android.IntentIntegrator
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -93,6 +94,10 @@ private fun ProxyXApp(activity: MainActivity) {
         uri?.let { runCatching { activity.contentResolver.openInputStream(it)?.bufferedReader()?.use { r -> r.readText() } }
             .onSuccess { if (!it.isNullOrBlank()) addProfile(it!!) else toast = "الملف فارغ" }
             .onFailure { toast = "تعذر قراءة الملف" } }
+    }
+    val qrLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val scanned = IntentIntegrator.parseActivityResult(result.resultCode, result.data)?.contents
+        if (!scanned.isNullOrBlank()) addProfile(scanned)
     }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(toast) { if (toast.isNotBlank()) { snackbar.showSnackbar(toast); toast = "" } }
@@ -239,7 +244,10 @@ private fun ProxyXApp(activity: MainActivity) {
                             }
                             Spacer(Modifier.height(9.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SmallAction("مسح QR", Icons.Default.QrCodeScanner, Modifier.weight(1f)) { toast = "سيتم تفعيل قارئ QR مع محرك الاستيراد" }
+                                SmallAction("مسح QR", Icons.Default.QrCodeScanner, Modifier.weight(1f)) {
+                                    qrLauncher.launch(IntentIntegrator(activity).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+                                        .setPrompt("امسح QR الخاص بإعداد PROXY X").setBeepEnabled(false).createScanIntent())
+                                }
                                 SmallAction("استيراد ملف", Icons.Default.FolderOpen, Modifier.weight(1f)) { filePicker.launch(arrayOf("*/*")) }
                                 SmallAction("لصق", Icons.Default.ContentPaste, Modifier.weight(1f)) {
                                     val cm = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
