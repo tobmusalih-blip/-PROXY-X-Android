@@ -112,6 +112,7 @@ private fun ProxyXApp(activity: MainActivity) {
                 containerColor = Bg,
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
+                    CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
                     NavigationBar(containerColor = Color(0xFF080510), tonalElevation = 0.dp) {
                         val names = listOf("الرئيسية", "الإحصائيات", "السجلات", "الحماية")
                         val icons = listOf(Icons.Default.Home, Icons.Default.BarChart, Icons.Default.ReceiptLong, Icons.Default.Security)
@@ -122,6 +123,7 @@ private fun ProxyXApp(activity: MainActivity) {
                                 colors = NavigationBarItemDefaults.colors(indicatorColor = Color(0xFF29133B)))
                         }
                     }
+                    }
                 }
             ) { pad ->
                 LazyColumn(
@@ -131,6 +133,7 @@ private fun ProxyXApp(activity: MainActivity) {
                 ) {
                     item {
                         Column(Modifier.fillMaxWidth().background(Bg)) {
+                            CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { activeTab = 3 }, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp))
@@ -155,20 +158,25 @@ private fun ProxyXApp(activity: MainActivity) {
                                     }
                                 }
                             }
-                            Box(Modifier.fillMaxWidth().height(260.dp)) {
+                            }
+                            Box(Modifier.fillMaxWidth().height(278.dp)) {
                                 HackerHeroArt(Modifier.fillMaxSize())
-                                Column(Modifier.align(Alignment.TopEnd).padding(end = 20.dp, top = 46.dp),
+                                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                                Column(Modifier.align(Alignment.TopEnd).padding(end = 20.dp, top = 70.dp),
                                     horizontalAlignment = Alignment.End) {
                                     Text("تصفح بحرية وأمان", color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                                     Text("اتصال أسرع .. خصوصية أكبر .. بدون قيود", color = Color(0xFFD5C9E3), fontSize = 12.sp)
                                 }
+                                }
                             }
                             Box(Modifier.fillMaxWidth().height(132.dp), contentAlignment = Alignment.TopCenter) {
+                                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp).offset(y = 20.dp),
                                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     MiniMetric("السرعة الحالية", "-- MB/s", Icons.Default.Bolt, Modifier.weight(1f))
                                     Spacer(Modifier.width(122.dp))
                                     MiniMetric("الحالة", "● غير متصل", Icons.Default.SignalCellularAlt, Modifier.weight(1f), true)
+                                }
                                 }
                                 NeonPowerButton(onClick = {
                                     message = if (profiles.none { it.id == selectedId }) "اختر خادماً أولاً" else
@@ -304,38 +312,59 @@ private fun ProxyXApp(activity: MainActivity) {
 @Composable
 private fun HackerHeroArt(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val w = size.width; val h = size.height
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF090313), Color(0xFF05030B), Color(0xFF090411))))
-        drawCircle(Brush.radialGradient(listOf(Color(0xAA6E13B8), Color(0x44620BA5), Color.Transparent), center = Offset(w*.22f,h*.52f), radius = w*.62f), radius = w*.62f, center = Offset(w*.22f,h*.52f))
-        // Dotted world map silhouette
-        for (row in 0..17) for (col in 0..42) {
-            val nx = col / 42f; val ny = row / 17f
-            val land = ((nx < .23f && ny > .25f && ny < .82f) || (nx in .28f.. .46f && ny > .15f && ny < .72f) ||
-                (nx in .51f.. .94f && ny > .2f && ny < .7f) || (nx in .38f.. .57f && ny > .68f && ny < .88f))
-            if (land && ((col*7+row*11)%5 != 0)) drawCircle(Color(0x887D27D0), 1.05.dp.toPx(), Offset(w*(.43f+nx*.55f), h*(.04f+ny*.58f)))
+        val w = size.width
+        val h = size.height
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF0D0318), Color(0xFF05030B), Color(0xFF07030D))))
+        drawCircle(Brush.radialGradient(listOf(Color(0xAA8616D2), Color(0x557016B5), Color.Transparent),
+            center = Offset(w * .18f, h * .48f), radius = w * .62f), w * .62f, Offset(w * .18f, h * .48f))
+        // Dotted world map on the upper-right.
+        for (row in 0..19) for (col in 0..45) {
+            val nx = col / 45f
+            val ny = row / 19f
+            val land = (nx < .18f && ny > .22f && ny < .78f) ||
+                (nx in .22f.. .39f && ny > .12f && ny < .70f) ||
+                (nx in .47f.. .98f && ny > .18f && ny < .72f) ||
+                (nx in .38f.. .56f && ny > .68f && ny < .90f)
+            if (land && (col * 13 + row * 7) % 4 != 0)
+                drawCircle(Color(0x887E2ACD), 1.dp.toPx(), Offset(w * (.43f + nx * .56f), h * (.05f + ny * .56f)))
         }
-        // Cloaked shoulders and hood
+        // Cloak and broad shoulders.
         val cloak = Path().apply {
-            moveTo(-w*.05f,h*.98f); lineTo(-w*.02f,h*.55f); quadraticTo(w*.02f,h*.38f,w*.20f,h*.28f)
-            quadraticTo(w*.18f,h*.04f,w*.38f,h*.02f); quadraticTo(w*.59f,h*.04f,w*.60f,h*.30f)
-            quadraticTo(w*.75f,h*.42f,w*.73f,h*.98f); close()
+            moveTo(-w * .08f, h * 1.02f)
+            cubicTo(-w * .03f, h * .74f, w * .02f, h * .51f, w * .12f, h * .40f)
+            cubicTo(w * .13f, h * .20f, w * .19f, h * .08f, w * .34f, h * .07f)
+            cubicTo(w * .50f, h * .06f, w * .58f, h * .22f, w * .58f, h * .43f)
+            cubicTo(w * .72f, h * .56f, w * .75f, h * .78f, w * .78f, h * 1.02f)
+            close()
         }
-        drawPath(cloak, Brush.linearGradient(listOf(Color(0xFF2B0B45), Color(0xFF08050F), Color(0xFF12091F)), start=Offset(0f,0f), end=Offset(w*.65f,h)))
-        drawPath(cloak, Color(0xFF8D28D6).copy(alpha=.55f), style=Stroke(width=2.dp.toPx()))
-        // Hood opening and hidden face
+        drawPath(cloak, Brush.linearGradient(listOf(Color(0xFF32104E), Color(0xFF100817), Color(0xFF07040D)),
+            start = Offset(0f, h * .10f), end = Offset(w * .72f, h)))
+        drawPath(cloak, Color(0xFF8C2BD2).copy(alpha = .72f), style = Stroke(width = 2.1.dp.toPx()))
+        // Rounded hood.
         val hood = Path().apply {
-            moveTo(w*.18f,h*.36f); quadraticTo(w*.16f,h*.08f,w*.39f,h*.07f); quadraticTo(w*.62f,h*.08f,w*.61f,h*.37f)
-            quadraticTo(w*.57f,h*.62f,w*.40f,h*.69f); quadraticTo(w*.23f,h*.60f,w*.18f,h*.36f); close()
+            moveTo(w * .13f, h * .46f)
+            cubicTo(w * .08f, h * .17f, w * .19f, h * .025f, w * .36f, h * .025f)
+            cubicTo(w * .55f, h * .025f, w * .64f, h * .18f, w * .59f, h * .47f)
+            cubicTo(w * .55f, h * .65f, w * .46f, h * .75f, w * .36f, h * .79f)
+            cubicTo(w * .25f, h * .73f, w * .17f, h * .62f, w * .13f, h * .46f)
+            close()
         }
-        drawPath(hood, Brush.radialGradient(listOf(Color(0xFF030108), Color(0xFF090311), Color(0xFF270B3D)), center=Offset(w*.40f,h*.35f), radius=w*.25f))
-        drawPath(hood, Color(0xFFB02AFF), style=Stroke(width=3.dp.toPx()))
-        // X visor
-        val cx=w*.40f; val cy=h*.39f
-        drawLine(Color(0xFFD72CFF), Offset(cx-w*.07f,cy-h*.055f), Offset(cx+w*.07f,cy+h*.055f), 5.dp.toPx(), cap=StrokeCap.Round)
-        drawLine(Color(0xFFD72CFF), Offset(cx+w*.07f,cy-h*.055f), Offset(cx-w*.07f,cy+h*.055f), 5.dp.toPx(), cap=StrokeCap.Round)
-        drawCircle(Color(0xFFB51BFF).copy(alpha=.25f), w*.17f, Offset(cx,cy))
-        // purple rim glow at base
-        drawLine(Brush.horizontalGradient(listOf(Color.Transparent, Purple, Pink, Color.Transparent)), Offset(0f,h*.96f), Offset(w,h*.96f), 3.dp.toPx())
+        drawPath(hood, Brush.linearGradient(listOf(Color(0xFF42115F), Color(0xFF100718), Color(0xFF260B3A)),
+            start = Offset(w * .12f, h * .08f), end = Offset(w * .62f, h * .72f)))
+        drawPath(hood, Color(0xFFB12BFF).copy(alpha = .88f), style = Stroke(width = 3.dp.toPx()))
+        drawOval(Brush.radialGradient(listOf(Color(0xFF020106), Color(0xFF08030E), Color(0xFF1B0829)),
+            center = Offset(w * .36f, h * .39f), radius = w * .23f),
+            topLeft = Offset(w * .19f, h * .19f), size = androidx.compose.ui.geometry.Size(w * .34f, h * .43f))
+        // Purple fabric folds and visor.
+        drawLine(Color(0xFF8F2BD2).copy(alpha = .65f), Offset(w * .12f, h * .52f), Offset(w * .035f, h * .94f), 2.dp.toPx())
+        drawLine(Color(0xFF6F1DAA).copy(alpha = .75f), Offset(w * .52f, h * .52f), Offset(w * .68f, h * .96f), 2.dp.toPx())
+        val cx = w * .36f
+        val cy = h * .42f
+        drawCircle(Color(0x557D12C4), w * .13f, Offset(cx, cy))
+        drawLine(Color(0xFFE13BFF), Offset(cx - w * .075f, cy - h * .055f), Offset(cx + w * .075f, cy + h * .055f), 5.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(Color(0xFFE13BFF), Offset(cx + w * .075f, cy - h * .055f), Offset(cx - w * .075f, cy + h * .055f), 5.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(Brush.horizontalGradient(listOf(Color.Transparent, Violet, Pink, Color.Transparent)),
+            Offset(0f, h * .97f), Offset(w, h * .97f), 2.dp.toPx())
     }
 }
 
