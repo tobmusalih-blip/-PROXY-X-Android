@@ -212,7 +212,7 @@ private fun ProxyXApp(activity: MainActivity) {
                                         val chosen = selectedProtocol == p
                                         Surface(Modifier.weight(1f).clickable { selectedProtocol = p },
                                             color = if (chosen) Color(0xFF291047) else Color(0xFF0A0812),
-                                            shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, if (chosen) Purple else Color(0xFF29213C)) {
+                                            shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, if (chosen) Purple else Color(0xFF29213C))) {
                                             Column(Modifier.padding(vertical = 10.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                                                 Text(protocolIcon(p), fontSize = 20.sp)
                                                 Text(p, color = if (chosen) Color.White else Soft, fontSize = 10.sp, fontWeight = FontWeight.Bold)
